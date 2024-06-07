@@ -100,8 +100,8 @@ updateTransport(struct stateVars *state)
 	// select
 	if (!(state->i_swchb & 0x02) && (uInfo.lswchb & 0x02))
 	{
-		uInfo.drawTimeCode = OSD_FRAMES;
-		state->io_frameNumber -= 60 *BACK_SECONDS;
+		state->f_skipNext = true;
+        return;
 	}
 
 	uInfo.lswchb = state->i_swchb;

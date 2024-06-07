@@ -15,6 +15,9 @@ struct stateVars
 {
 	int32_t io_frameNumber;
 	uint32_t i_numFrames;
+    
+    int16_t i_numIndex;
+    bool f_skipNext;
 
 	uint8_t i_swcha;
 	uint8_t i_swchb;

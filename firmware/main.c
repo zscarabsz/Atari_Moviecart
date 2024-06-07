@@ -216,8 +216,11 @@ setupDisk()
 	// first available regular file
 	state.io_frameNumber = 1;
 	state.io_bits &= ~STATE_PLAYING;
-	while (!pf_open_first(&state.i_numFrames))
-	{
+    state.f_skipNext = false;
+    state.i_numIndex = -1;
+
+	while (!pf_open_next(&state.i_numFrames, &state.i_numIndex))
+    {
 		flash_led(3);
 	}
 
@@ -236,7 +239,7 @@ resetNewCode()
 void
 handleFirmwareUpdate()
 {
-	// is this an udpate file?
+	// is this an update file?
 	if (memcmp(fsInfo.name, "UPDATE  FRM", 11) != 0)
         return;
     
@@ -480,6 +483,19 @@ runFrameLoop()
 		state.i_inpt5 = r_coreInfo.mr_inpt5;
 
 		updateTransport(&state);
+        
+        // user has clicked 'select' to skip tracks, or the track is at the end
+        // - go to next track
+        if ((state.f_skipNext) || (state.io_frameNumber >= state.i_numFrames - 3))
+        {
+            t = 0;
+            state.io_frameNumber = 1;
+            state.io_bits =  STATE_PLAYING;
+            state.f_skipNext = false;
+            pf_open_next(&state.i_numFrames, &state.i_numIndex);
+            continue;
+        }
+        
 		prepareNextFrame();
 	}
 }
@@ -535,7 +551,7 @@ main(void)
 	handleFirmwareUpdate();
 	updateInit();
 	runTitle();
-	runFrameLoop();
+    runFrameLoop();
 }
 
 #include "mcc_generated_files/clc1.h"
@@ -571,7 +587,7 @@ __attribute__((section(".newcode"),space(prog))) void main2(void)
 	handleFirmwareUpdate();
 	updateInit();
 	runTitle();
-	runFrameLoop();
+    runFrameLoop();
 	
 	/*
     9,217    4800          000000       main2      NOP                                           

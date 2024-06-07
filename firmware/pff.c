@@ -375,25 +375,19 @@ bool pf_seek_block (
 	return true;
 }
 
-//-----------------------------------------------------------------------
-// First regular non-deleted file										 
-//-----------------------------------------------------------------------
-
-bool pf_open_first(
-		uint32_t *numFrames
-		)
+bool pf_open_next(uint32_t *numFrames, int16_t *numIndex)
 {
 	bool		res = true;
 	uint8_t		c;
 	uint8_t*	buf;
 	uint8_t*	dir;
 
-	uint16_t	dir_index = 0;			// Current read/write index number 
+	int16_t     dir_index = 0;	// Current read/write index number 
 	uint32_t	dir_clust = fsInfo.dirbase;	// Current cluster 
 	uint32_t	dir_sect = clust2sect(dir_clust);	// Current sector 
 
-	*numFrames = 0;
-
+    *numFrames = 0;
+        
 	do 
 	{
 		buf = disk_read_block1(dir_sect);
@@ -404,34 +398,52 @@ bool pf_open_first(
 		// Reached to end of table 
 		if (c == 0)
 		{
-			break;
+            if (*numIndex > -1) // user is Next'ing to the EOT, start over - zscarabsz
+            {
+                dir_index = 0;
+                dir_clust = fsInfo.dirbase;	
+                dir_sect = clust2sect(dir_clust);
+                *numFrames = 0;
+                *numIndex = -1;
+                continue;
+            }
+            else
+            {
+                break;
+            }
 		}
+        
+        // we want the 'next' file
+        // - why file index needs to be > than the current track  - zscarabsz
+        if (dir_index > *numIndex)  
+        {
+            if (c != 0xe5)	// not deleted
+            {
+                // regular archive file
+                if (dir[DIR_Attr] == AM_ARC)
+                {
+                    // File start cluster 
+                    uint8_t	*b = (uint8_t*)&fsInfo.org_clust;
 
-		if (c != 0xe5)	// not deleted
-		{
-			// regular archive file
-			if (dir[DIR_Attr] == AM_ARC)
-			{
-				// File start cluster 
-				uint8_t	*b = (uint8_t*)&fsInfo.org_clust;
+                    // little endian architecture
+                    b[3] = dir[DIR_FstClusHI + 1];
+                    b[2] = dir[DIR_FstClusHI + 0];
+                    b[1] = dir[DIR_FstClusLO + 1];
+                    b[0] = dir[DIR_FstClusLO + 0];
 
-				// little endian architecture
-				b[3] = dir[DIR_FstClusHI + 1];
-				b[2] = dir[DIR_FstClusHI + 0];
-				b[1] = dir[DIR_FstClusLO + 1];
-				b[0] = dir[DIR_FstClusLO + 0];
+                    fsInfo.fsize = ld_dword(dir+DIR_FileSize);	// File size 
+                    *numFrames = fsInfo.fsize / (FIELD_NUM_BLOCKS * 512);
 
-				fsInfo.fsize = ld_dword(dir+DIR_FileSize);	// File size 
-				*numFrames = fsInfo.fsize / (FIELD_NUM_BLOCKS * 512);
+                    fsInfo.block = 0;						// File pointer 
+                    fsInfo.curr_clust = fsInfo.org_clust;
 
-				fsInfo.block = 0;						// File pointer 
-				fsInfo.curr_clust = fsInfo.org_clust;
-
-				// store 8.3 name
-				memcpy(fsInfo.name, &dir[DIR_Name], 11);
-				break;
-			}
-		}
+                    // store 8.3 name
+                    memcpy(fsInfo.name, &dir[DIR_Name], 11);
+                    *numIndex = dir_index;
+                    break;
+                }
+            }
+        }
 
 		// Next entry 
 		dir_index++;
@@ -462,6 +474,17 @@ bool pf_open_first(
 				}
 			}
 		}
+        
+        // something happened, but we are playing, don't die - just start over  - zscarabsz
+        if ((res == false) && (*numIndex > -1))  
+        {
+            res = true;
+            dir_index = 0;
+            dir_clust = fsInfo.dirbase;	
+            dir_sect = clust2sect(dir_clust);
+            *numFrames = 0;
+           // *numIndex = -1;
+        }
 
 	} while (res == true);
 
