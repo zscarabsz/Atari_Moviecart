@@ -8,7 +8,7 @@ This firmware update will allow the Atari MovieCart to play ALL movie files on t
 - 'GAME SELECT' switch on the console will change movies/tracks.
 - When a track ends, the next track auto-starts
 - Once all tracks are complete, it auto-restarts from the beginning
-    (note - due to SD read inconsistencies, 'next' track may be random)
+- (note - due to SD read inconsistencies, 'next' track may be random)
 
 ----------------------------------------------------------------------------------------------------------------------------
 
